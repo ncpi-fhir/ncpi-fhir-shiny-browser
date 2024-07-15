@@ -94,3 +94,10 @@ parse_patient = function(patient) {
 parse_patients = function(patients){
   bind_rows(lapply(patients, parse_patient))
 }
+
+extract_codes = function(resource){
+  tibble(coding = resource$code$coding) %>%
+    unnest_wider(coding) %>%
+    select(-version) %>%
+    mutate(status = resource$verificationStatus$coding[[1]]$display)
+}

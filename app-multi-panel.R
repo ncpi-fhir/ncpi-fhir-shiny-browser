@@ -114,7 +114,7 @@ ui <- fluidPage(
                 ),
                 # Show a plot of the generated distribution
                 mainPanel(
-                    h2("Monarch API Diseases"),
+                    h2("Monarch API Genes"),
                     DTOutput("found_diseases"),
                     h2("Source HPO Terms"),
                     DTOutput("hpo_terms"),
@@ -159,43 +159,55 @@ server <- function(input, output, session) {
     })
     # Gather Phenotypes and create a nice table from the resources
     phenotypes <- reactive({
-        get_all(sprintf("Condition/?patient=%s&_profile:below=https://nih-ncpi.github.io/ncpi-fhir-ig/StructureDefinition/phenotype",patientID()))
+        get_all(sprintf("Condition/?patient=%s",patientID()))
     })
     phenotypeTable <- reactive({
-        my.data=data.frame(name=sapply(phenotypes(),function(x){ifelse(is.null(x$code$coding[[1]]$display),x$code$text,x$code$coding[[1]]$display)}),
-                   code=sapply(phenotypes(),function(x){ifelse(is.null(x$code$coding[[1]]$code),"NULL",x$code$coding[[1]]$code)}),
-                   status=sapply(phenotypes(),function(x){ifelse(is.null(x$verificationStatus$text),"NULL",x$verificationStatus$text)}))
+        if(length(phenotypes())>0){
+          my.data=data.frame(bind_rows(lapply(phenotypes(), extract_codes)) %>% filter(system == "http://purl.obolibrary.org/obo/hp.owl"))
+        } else(my.data=data.frame())
+      
         if(nrow(my.data)==0) {
-            my.data=data.frame(name="<No phenotypes>",
+            my.data=data.frame(system="<No phenotypes>",
                                code="<No phenotypes>",
+                               display="<No phenotypes>",
                                status="<No phenotypes>")
         }
         my.data
     })
     #Gather Conditions and create a nice table from the resources
     diseases <- reactive({
-        get_all(sprintf("Condition/?patient=%s&_profile:below=https://nih-ncpi.github.io/ncpi-fhir-ig/StructureDefinition/disease",patientID()))
+        get_all(sprintf("Condition/?patient=%s",patientID()))
     })
     diseaseTable <- reactive({
-        my.data=data.frame(name=sapply(diseases(),function(x){ifelse(is.null(x$code$coding[[1]]$display),x$code$text,x$code$coding[[1]]$display)}),
-                   code=sapply(diseases(),function(x){ifelse(is.null(x$code$coding[[1]]$code),"NULL",x$code$coding[[1]]$code)}),
-                   status=sapply(diseases(),function(x){ifelse(is.null(x$verificationStatus$code$coding[[1]]$code),"NULL",x$verificationStatus$code$coding[[1]]$code)}))
-        if(nrow(my.data)==0) {
-            my.data=data.frame(name="<No diseases>",
-                               code="<No diseases>",
-                               status="<No diseases>")
-        }
-        my.data
+      if(length(phenotypes())>0){
+        my.data=data.frame(bind_rows(lapply(phenotypes(), extract_codes)) %>% filter(system == "http://purl.obolibrary.org/obo/mondo.owl"))
+      } else(my.data=data.frame())
+      
+      if(nrow(my.data)==0) {
+        my.data=data.frame(system="<No phenotypes>",
+                           code="<No phenotypes>",
+                           display="<No phenotypes>",
+                           status="<No phenotypes>")
+      }
+      my.data
         
     })
     
     #Request info from Monarch API on button press
     simMatches <- reactive({
-        sim_search((filter(phenotypeTable(),status=="Positive"))$code)
+      temp <- filter(phenotypeTable(),status=="Confirmed")$code
+      if (length(temp)>0){
+        sim_search(temp)
+      } else data.frame(error= "<At least one Phenotype required for search>")
     })
     #Create table from API return
     simMatchTable <- reactive({
+      if(length(simMatches())>0 && hasName(simMatches()[[1]], "subject")){
         list_sim_results(simMatches())
+      } else data.frame(error= "<No results>")
+      
+      
+      list_sim_results(simMatches())
     })
     
     
