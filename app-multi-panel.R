@@ -8,7 +8,7 @@ library(waiter)
 
 ui <- fluidPage(
     useWaiter(),
-    waiterOnBusy(spin_2()),
+    #waiterOnBusy(spin_2()),
 
     # Application title
     titlePanel("INCLUDE FHIR Browser"),
@@ -37,8 +37,8 @@ ui <- fluidPage(
                             DTOutput("study_table")
                             ),
                      column(8,
-                            navbarPage("Study Details:",
-                                       tabPanel("Parsed view", fluidPage(
+                            navbarPage("Study Details:", 
+                                       tabPanel("Parsed view", fluidPage(id="study_details_page",
                                                 fluidRow(textOutput("study_detail_header")),
                                                 fluidRow(column(6,plotOutput("study_detail_race")),
                                                          column(6,plotOutput("study_detail_eth"))),
@@ -277,10 +277,17 @@ server <- function(input, output, session) {
         studyTable()[input$study_table_rows_selected,"id"]
     })
     
+    w_study_details <- Waiter$new(id = "study_details_page")
     #Get participants for that ID
     study_participants <- reactive({
         req(input$server)
         req(input$study_table_rows_selected)
+        
+        w_study_details$show()
+        
+        on.exit({
+          w_study_details$hide()
+        })
         
         get_all(sprintf("Patient?_has:ResearchSubject:individual:study=%s",selected_study_id()))
     })
