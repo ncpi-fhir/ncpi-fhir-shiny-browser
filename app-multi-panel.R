@@ -3,10 +3,12 @@ library(tidyverse)
 library(httr)
 library(jsonlite)
 library(DT)
+library(waiter)
 
 
 ui <- fluidPage(
-
+    useWaiter(),
+    waiterOnBusy(spin_2()),
 
     # Application title
     titlePanel("NCPI FHIR Browser"),
@@ -163,12 +165,13 @@ server <- function(input, output, session) {
     })
     phenotypeTable <- reactive({
         if(length(phenotypes())>0){
-          my.data=data.frame(bind_rows(lapply(phenotypes(), extract_codes)) %>% filter(system == "http://purl.obolibrary.org/obo/hp.owl"))
+          my.data=data.frame(bind_rows(lapply(phenotypes(), extract_codes)) %>% 
+                               filter(system == "http://purl.obolibrary.org/obo/hp.owl") %>%
+                               select(-system))
         } else(my.data=data.frame())
       
         if(nrow(my.data)==0) {
-            my.data=data.frame(system="<No phenotypes>",
-                               code="<No phenotypes>",
+            my.data=data.frame(code="<No phenotypes>",
                                display="<No phenotypes>",
                                status="<No phenotypes>")
         }
@@ -180,12 +183,13 @@ server <- function(input, output, session) {
     })
     diseaseTable <- reactive({
       if(length(phenotypes())>0){
-        my.data=data.frame(bind_rows(lapply(phenotypes(), extract_codes)) %>% filter(system == "http://purl.obolibrary.org/obo/mondo.owl"))
+        my.data=data.frame(bind_rows(lapply(phenotypes(), extract_codes)) %>% 
+                             filter(system == "http://purl.obolibrary.org/obo/mondo.owl") %>%
+                             select(-system))
       } else(my.data=data.frame())
       
       if(nrow(my.data)==0) {
-        my.data=data.frame(system="<No phenotypes>",
-                           code="<No phenotypes>",
+        my.data=data.frame(code="<No phenotypes>",
                            display="<No phenotypes>",
                            status="<No phenotypes>")
       }
@@ -200,6 +204,7 @@ server <- function(input, output, session) {
         sim_search(temp)
       } else data.frame(error= "<At least one Phenotype required for search>")
     })
+    
     #Create table from API return
     simMatchTable <- reactive({
       if(length(simMatches())>0 && hasName(simMatches()[[1]], "subject")){
