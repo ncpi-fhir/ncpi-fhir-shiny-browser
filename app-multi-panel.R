@@ -8,7 +8,7 @@ library(waiter)
 
 ui <- fluidPage(
     useWaiter(),
-    waiterOnBusy(spin_2()),
+    #waiterOnBusy(spin_2()),
 
     # Application title
     titlePanel("INCLUDE FHIR Browser"),
@@ -37,8 +37,8 @@ ui <- fluidPage(
                             DTOutput("study_table")
                             ),
                      column(8,
-                            navbarPage("Study Details:",
-                                       tabPanel("Parsed view", fluidPage(
+                            navbarPage("Study Details:", 
+                                       tabPanel("Parsed view", fluidPage(id="study_details_page",
                                                 fluidRow(textOutput("study_detail_header")),
                                                 fluidRow(column(6,plotOutput("study_detail_race")),
                                                          column(6,plotOutput("study_detail_eth"))),
@@ -65,12 +65,13 @@ ui <- fluidPage(
                ),
                column(8,
                       navbarPage("Participant Details:",
-                                 tabPanel("Parsed view",
+                                 tabPanel("Parsed view", fluidPage(id = "participant_summaries",
                                           tableOutput("participant_details"),
                                           helpText("Disease Summary"),
                                           tableOutput("participant_disease_summary"),
                                           helpText("Phenotype Summary"),
                                           tableOutput("participant_phenotype_summary")
+                                 )
                                  ),
                                  tabPanel("JSON view",
                                           verbatimTextOutput("participant_json")
@@ -103,7 +104,7 @@ ui <- fluidPage(
            )
        )
        ),
-       tabPanel("Monarch API query",
+       tabPanel("Monarch API query", fluidPage(id = "disease_terms",
             sidebarLayout(
                 #Controls re a participant
                 sidebarPanel(
@@ -126,7 +127,7 @@ ui <- fluidPage(
             )
         )
     )
-)
+))
 
 server <- function(input, output, session) {
     ## Configuration options
@@ -156,6 +157,8 @@ server <- function(input, output, session) {
         req(input$participant_reference)
         get_all(input$participant_reference)
     })
+    w_patient_summaries <- Waiter$new(id = "participant_summaries")
+    
     patientID <- reactive({
         paste0("Patient/",patientInput()[[1]]$id)
     })
@@ -164,6 +167,12 @@ server <- function(input, output, session) {
         get_all(sprintf("Condition/?patient=%s",patientID()))
     })
     phenotypeTable <- reactive({
+      w_patient_summaries$show()
+      
+      on.exit({
+        w_patient_summaries$hide()
+      })
+      
         if(length(phenotypes())>0){
           my.data=data.frame(bind_rows(lapply(phenotypes(), extract_codes)) %>% 
                                filter(system == "http://purl.obolibrary.org/obo/hp.owl") %>%
@@ -197,8 +206,16 @@ server <- function(input, output, session) {
         
     })
     
+    w_disease_terms <- Waiter$new(id = "disease_terms")
+    
     #Request info from Monarch API on button press
     simMatches <- reactive({
+      w_disease_terms$show()
+      
+      on.exit({
+        w_disease_terms$hide()
+      })
+      
       temp <- filter(phenotypeTable(),status=="Confirmed")$code
       if (length(temp)>0){
         sim_search(temp)
@@ -277,16 +294,24 @@ server <- function(input, output, session) {
         studyTable()[input$study_table_rows_selected,"id"]
     })
     
+    w_study_details <- Waiter$new(id = "study_details_page")
     #Get participants for that ID
     study_participants <- reactive({
         req(input$server)
         req(input$study_table_rows_selected)
+        
+        
         
         get_all(sprintf("Patient?_has:ResearchSubject:individual:study=%s",selected_study_id()))
     })
     
     # Summarize in a table
     studyParticipantTable <- reactive({
+      w_study_details$show()
+      
+      on.exit({
+        w_study_details$hide()
+      })
         parse_patients(study_participants())
     })
     
@@ -336,12 +361,14 @@ server <- function(input, output, session) {
     output$study_detail_race_eth_tab <- renderTable({
         studyParticipantTable() %>% group_by(race, ethnicity) %>% 
             summarize(n=n(), .groups = "keep")
+      
+      
     })
-
 
     # Output study JSON
     output$study_json <- renderText({
         studyTable()[input$study_table_rows_selected,"resource"]
+      
     })
     
     ##Participant Summary tabs
