@@ -11,7 +11,7 @@ ui <- fluidPage(
     waiterOnBusy(spin_2()),
 
     # Application title
-    titlePanel("NCPI FHIR Browser"),
+    titlePanel("INCLUDE FHIR Browser"),
 
     # Main page that sets up a workflow of tabs
     navbarPage("=>",
@@ -25,7 +25,7 @@ ui <- fluidPage(
                           value = ""),
                 textInput("server",
                           "Server Loc:",
-                          value = "")
+                          value = "https://include-api-fhir-service.includedcc.org/")
                 
                 
        ),
@@ -80,7 +80,7 @@ ui <- fluidPage(
            )
        )
        ),
-       tabPanel("DRS Browser",fluidPage(
+       tabPanel("File Browser",fluidPage(
            fluidRow(
                column(4,
                       helpText("Particiant Information:"),
@@ -376,7 +376,7 @@ server <- function(input, output, session) {
     
     #
     drsDocuments <- reactive({
-        get_all(sprintf("DocumentReference/?patient=%s&_profile:below=https://nih-ncpi.github.io/ncpi-fhir-ig/StructureDefinition/drs-document-reference",patientID()))
+        get_all(sprintf("DocumentReference/?patient=%s",patientID()))
     })
     drsDocumentTable <- reactive({
         my.data=data.frame(id=sapply(drsDocuments(),function(x){x$id}),
